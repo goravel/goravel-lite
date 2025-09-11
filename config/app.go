@@ -2,8 +2,9 @@ package config
 
 import (
 	"github.com/goravel/framework/contracts/foundation"
-	"github.com/goravel/framework/facades"
 	"github.com/goravel/framework/support/carbon"
+
+	"goravel/app/facades"
 )
 
 // Boot Start all init methods of the current folder to bootstrap all config.
