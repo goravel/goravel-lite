@@ -5,6 +5,7 @@ import (
 	"github.com/goravel/framework/support/carbon"
 
 	"goravel/app/facades"
+	"goravel/app/providers"
 )
 
 // Boot Start all init methods of the current folder to bootstrap all config.
@@ -68,6 +69,8 @@ func init() {
 		// The service providers listed here will be automatically loaded on the
 		// request to your application. Feel free to add your own services to
 		// this array to grant expanded functionality to your applications.
-		"providers": []foundation.ServiceProvider{},
+		"providers": []foundation.ServiceProvider{
+			&providers.AppServiceProvider{},
+		},
 	})
 }
