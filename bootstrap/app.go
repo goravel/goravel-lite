@@ -14,10 +14,6 @@ func Boot() {
 
 	// Bootstrap the config.
 	config.Boot()
-}
-
-func Run() {
-	app := foundation.NewApplication()
 
 	// Run the application
 	app.Run()
