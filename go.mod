@@ -2,7 +2,7 @@ module goravel
 
 go 1.24.0
 
-require github.com/goravel/framework v1.16.1-0.20251015122738-88bdeab8154c
+require github.com/goravel/framework v1.16.1-0.20251015125017-961b597210ef
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
