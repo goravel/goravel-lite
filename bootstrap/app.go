@@ -16,5 +16,5 @@ func Boot() {
 	config.Boot()
 
 	// Run the application
-	// app.Run()
+	app.Run()
 }
