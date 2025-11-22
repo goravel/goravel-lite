@@ -7,7 +7,7 @@ import (
 )
 
 func Boot() {
-	foundation.Configure().
+	foundation.Setup().
 		WithConfig(config.Boot).
 		WithProviders(Providers()).
 		Run()

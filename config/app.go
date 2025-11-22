@@ -1,11 +1,9 @@
 package config
 
 import (
-	"github.com/goravel/framework/contracts/foundation"
 	"github.com/goravel/framework/support/carbon"
 
 	"goravel/app/facades"
-	"goravel/app/providers"
 )
 
 // Boot Start all init methods of the current folder to bootstrap all config.
@@ -63,14 +61,5 @@ func init() {
 		// 32 character string, otherwise these encrypted strings
 		// will not be safe. Please do this before deploying an application!
 		"key": config.Env("APP_KEY", ""),
-
-		// Autoload service providers
-		//
-		// The service providers listed here will be automatically loaded on the
-		// request to your application. Feel free to add your own services to
-		// this array to grant expanded functionality to your applications.
-		"providers": []foundation.ServiceProvider{
-			&providers.AppServiceProvider{},
-		},
 	})
 }
