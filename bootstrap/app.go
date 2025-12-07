@@ -9,6 +9,5 @@ import (
 func Boot() {
 	foundation.Setup().
 		WithConfig(config.Boot).
-		WithProviders(Providers()).
 		Run()
 }
