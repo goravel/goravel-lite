@@ -3,7 +3,7 @@ module goravel
 go 1.24.0
 
 require (
-	github.com/goravel/framework v1.16.1-0.20251219141002-2535f3b60a1f
+	github.com/goravel/framework v1.16.1-0.20251223072401-07de65f169f0
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -91,5 +91,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.31.1 // indirect
 )
-
-replace github.com/goravel/framework => ../framework
