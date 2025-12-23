@@ -1,0 +1,48 @@
+name: Create Pr For Goravel
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout goravel-lite
+        uses: actions/checkout@v4
+        with:
+          path: goravel-lite
+
+      - name: Checkout Repo B
+        uses: actions/checkout@v4
+        with:
+          repository: goravel/goravel
+          # token: ${{ secrets.REPO_B_TOKEN }}
+          path: goravel
+          ref: master
+
+      - name: Copy Changes from goravel-lite to goravel
+        run: |
+          cp -af goravel-lite/. goravel/
+          cd goravel
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
+      - name: Push to Goravel
+        run: |
+          cd goravel
+          BRANCH_NAME="auto/sync-lite-$(date +%Y%m%d%H%M%S)"
+          git checkout -b $BRANCH_NAME
+          git add .
+          git commit -m "Sync from goravel-lite: $(date)"
+          git push origin $BRANCH_NAME
+
+      - name: Create PR for Goravel
+        uses: repo-sync/pull-request@v2
+        with:
+          # github_token: ${{ secrets.REPO_B_TOKEN }}
+          source_repo: goravel/goravel
+          source_branch: ${{ env.BRANCH_NAME }}
+          destination_branch: master
+          pr_title: "chore: Sync from goravel-lite"
+          pr_body: "This PR is auto-created by GitHub Action in Repo goravel-lite."
