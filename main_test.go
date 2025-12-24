@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/http"
-	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -25,6 +24,11 @@ func TestMainTestSuite(t *testing.T) {
 
 func (s *MainTestSuite) SetupSuite() {
 	bootstrap.Boot()
+
+	// There is no .env file in the testing environment, so we need to initialize the configuration first.
+	facades.Config().Add("app.name", "Goravel")
+	facades.Config().Add("app.env", "local")
+	facades.Config().Add("app.debug", "true")
 }
 
 func (s *MainTestSuite) TearDownTest() {
@@ -36,9 +40,9 @@ func (s *MainTestSuite) TearDownTest() {
 func (s *MainTestSuite) TestPackageInstall_All() {
 	s.NoError(facades.Artisan().Call("package:install --all --default --dev"))
 
-	data, err := os.ReadFile(".env.example")
+	data, err := file.GetContent(".env.example")
 	s.Require().NoError(err)
-	s.Require().NoError(os.WriteFile(".env", data, 0644))
+	s.Require().NoError(file.PutContent(".env", data))
 
 	s.NoError(facades.Artisan().Call("key:generate"))
 
