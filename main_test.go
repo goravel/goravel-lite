@@ -49,11 +49,11 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 	go func() {
 		cmd := exec.Command("go", "run", ".")
 		output, err := cmd.CombinedOutput()
-		fmt.Println(string(output)) // to log actual error details
+		fmt.Println("-=-=-=", string(output))
 		s.NoError(err)
 	}()
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
