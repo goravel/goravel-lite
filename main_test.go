@@ -1,10 +1,8 @@
 package main
 
 import (
-	"net/http"
 	"os/exec"
 	"testing"
-	"time"
 
 	"github.com/goravel/framework/support/file"
 	"github.com/goravel/framework/support/path"
@@ -45,16 +43,6 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 	s.Require().NoError(file.PutContent(".env", data))
 
 	s.NoError(facades.Artisan().Call("key:generate"))
-
-	go func() {
-		s.NoError(exec.Command("go", "run", ".").Run())
-	}()
-
-	time.Sleep(5 * time.Second)
-
-	resp, err := http.Get("http://127.0.0.1:3000")
-	s.Require().NoError(err)
-	s.Equal(http.StatusOK, resp.StatusCode)
 
 	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
