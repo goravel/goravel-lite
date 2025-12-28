@@ -56,7 +56,7 @@ jobs:
           git commit -m "chore: sync from goravel-lite
           
           # for i in {1..3}; do
-          git push origin $PR_BRANCH_NAME && break
+          git push origin $PR_BRANCH_NAME
           #   echo "🔄 Retrying push (attempt $i)"
           #   sleep 5
           # done
