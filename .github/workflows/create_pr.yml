@@ -51,7 +51,7 @@ jobs:
           echo "PR_BRANCH_NAME=${PR_BRANCH_NAME}" >> $GITHUB_ENV
           
           git checkout -b $PR_BRANCH_NAME
-          rsync -av --delete --exclude='.git/' ../goravel-lite/ ./
+          rsync -av --delete --exclude='.git/' --exclude='.github/' ../goravel-lite/ ./
           git add .
           git commit -m "chore: sync from goravel-lite"
           
