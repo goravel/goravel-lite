@@ -3,6 +3,7 @@ package main
 import (
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/goravel/framework/support/file"
 	"github.com/goravel/framework/support/path"
@@ -38,11 +39,11 @@ func (s *MainTestSuite) TearDownTest() {
 func (s *MainTestSuite) TestPackageInstall_All() {
 	s.NoError(facades.Artisan().Call("package:install --all --default --dev"))
 
-	data, err := file.GetContent(".env.example")
-	s.Require().NoError(err)
-	s.Require().NoError(file.PutContent(".env", data))
+	go func() {
+		s.NoError(exec.Command("go", "run", ".").Run())
+	}()
 
-	s.NoError(facades.Artisan().Call("key:generate"))
+	time.Sleep(2 * time.Second)
 
 	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
