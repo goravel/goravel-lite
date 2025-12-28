@@ -1,0 +1,85 @@
+name: Create Pr For Goravel
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create-pr-for-goravel:
+    runs-on: ubuntu-latest
+    env:
+      REPO_OWNER: "goravel"
+      REPO_GORAVEL: "goravel"
+      TARGET_BRANCH: "master"
+      PR_BRANCH_PREFIX: "auto-sync"
+    steps:
+      - name: Checkout goravel-lite
+        uses: actions/checkout@v4
+        with:
+          path: goravel-lite
+          fetch-depth: 1
+
+      - name: Checkout goravel
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO_OWNER }}/${{ env.REPO_GORAVEL }}
+          # token: ${{ secrets.REPO_B_PAT }}
+          path: goravel
+          ref: ${{ env.TARGET_BRANCH }}
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "GitHub Actions[bot]"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Sync Files from goravel-lite to goravel
+        run: |
+          cd goravel
+          ./artisan package:install --all --default --dev
+          
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "ℹ️ No changes detected, exiting"
+            echo "NO_CHANGES=true" >> $GITHUB_ENV
+            exit 0
+          fi
+
+      - name: Push New Branch to goravel/goravel
+        if: env.NO_CHANGES != 'true'
+        run: |
+          cd goravel
+          PR_BRANCH_NAME="${PR_BRANCH_PREFIX}-$(date +%Y%m%d%H%M%S)-${{ github.run_id }}"
+          echo "PR_BRANCH_NAME=${PR_BRANCH_NAME}" >> $GITHUB_ENV
+          
+          git checkout -b $PR_BRANCH_NAME
+          cp ../goravel-lite/* ./
+          git add .
+          git commit -m "chore: sync from goravel-lite
+          
+          # for i in {1..3}; do
+          git push origin $PR_BRANCH_NAME && break
+          #   echo "🔄 Retrying push (attempt $i)"
+          #   sleep 5
+          # done
+
+      - name: Create PR
+        if: env.NO_CHANGES != 'true'
+        run: |
+          # echo "${{ secrets.REPO_B_PAT }}" | gh auth login --with-token
+          gh auth login --with-token
+          
+          cd goravel
+          
+          gh pr create \
+            --base ${{ env.TARGET_BRANCH }} \
+            --head ${{ env.PR_BRANCH_NAME }} \
+            --title "chore: auto sync from goravel-lite" \
+            --body "This PR is auto-created by GitHub Action in goravel-lite.
+            - Trigger event: ${{ github.event_name }}
+            - Run ID: ${{ github.run_id }}
+            - Sync time: $(date --utc +'%Y-%m-%d %H:%M:%S UTC')"
+          
+          echo "✅ PR created successfully!"
