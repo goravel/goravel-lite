@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os/exec"
 	"testing"
 
@@ -39,16 +38,7 @@ func (s *MainTestSuite) TearDownTest() {
 func (s *MainTestSuite) TestPackageInstall_All() {
 	s.NoError(facades.Artisan().Call("package:install --all --default --dev"))
 
-	content, err := file.GetContent(".env.example")
-	s.NoError(err)
-	s.NoError(file.PutContent(".env", content))
-
-	s.NoError(facades.Artisan().Call("key:generate"))
-
-	cmd := exec.Command("go", "run", ".", "artisan")
-	output, err := cmd.CombinedOutput()
-	fmt.Println("-=-=-=", string(output))
-	s.NoError(err)
+	s.NoError(exec.Command("go", "run", ".", "artisan").Run())
 
 	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
