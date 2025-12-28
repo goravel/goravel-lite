@@ -50,7 +50,7 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 		s.NoError(exec.Command("go", "run", ".").Run())
 	}()
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	resp, err := http.Get("http://127.0.0.1:3000")
 	s.Require().NoError(err)
