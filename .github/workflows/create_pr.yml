@@ -11,8 +11,6 @@ concurrency:
 jobs:
   create-pr-for-goravel:
     runs-on: ubuntu-latest
-    env:
-      PR_BRANCH_PREFIX: "auto-sync"
     steps:
       - name: Checkout goravel-lite
         uses: actions/checkout@v4
@@ -49,11 +47,11 @@ jobs:
         if: env.NO_CHANGES != 'true'
         run: |
           cd goravel
-          PR_BRANCH_NAME="${PR_BRANCH_PREFIX}-$(date +%Y%m%d%H%M%S)-${{ github.run_id }}"
+          PR_BRANCH_NAME="auto-sync/$(date +%Y%m%d%H%M%S)-${{ github.run_id }}"
           echo "PR_BRANCH_NAME=${PR_BRANCH_NAME}" >> $GITHUB_ENV
           
           git checkout -b $PR_BRANCH_NAME
-          cp ../goravel-lite/* ./
+          rsync -av --delete --exclude='.git/' ../goravel-lite/ ./
           git add .
           git commit -m "chore: sync from goravel-lite
           
