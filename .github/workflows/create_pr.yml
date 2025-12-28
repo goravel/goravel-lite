@@ -12,9 +12,6 @@ jobs:
   create-pr-for-goravel:
     runs-on: ubuntu-latest
     env:
-      REPO_OWNER: "goravel"
-      REPO_GORAVEL: "goravel"
-      TARGET_BRANCH: "master"
       PR_BRANCH_PREFIX: "auto-sync"
     steps:
       - name: Checkout goravel-lite
@@ -26,10 +23,11 @@ jobs:
       - name: Checkout goravel
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.REPO_OWNER }}/${{ env.REPO_GORAVEL }}
+          repository: goravel/goravel
           # token: ${{ secrets.REPO_B_PAT }}
           path: goravel
-          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 1
+          ref: master
 
       - name: Configure Git Identity
         run: |
@@ -74,7 +72,7 @@ jobs:
           cd goravel
           
           gh pr create \
-            --base ${{ env.TARGET_BRANCH }} \
+            --base master \
             --head ${{ env.PR_BRANCH_NAME }} \
             --title "chore: auto sync from goravel-lite" \
             --body "This PR is auto-created by GitHub Action in goravel-lite.
