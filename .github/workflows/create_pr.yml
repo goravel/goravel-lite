@@ -13,16 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout goravel-lite
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: goravel-lite
           fetch-depth: 1
 
       - name: Checkout goravel
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: goravel/goravel
-          # token: ${{ secrets.REPO_B_PAT }}
+          token: ${{ secrets.PAT }}
           path: goravel
           fetch-depth: 1
           ref: master
