@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os/exec"
 	"testing"
-	"time"
 
 	"github.com/goravel/framework/support/file"
 	"github.com/goravel/framework/support/path"
@@ -46,14 +45,10 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 
 	s.NoError(facades.Artisan().Call("key:generate"))
 
-	go func() {
-		cmd := exec.Command("go", "run", ".")
-		output, err := cmd.CombinedOutput()
-		fmt.Println("-=-=-=", string(output))
-		s.NoError(err)
-	}()
-
-	time.Sleep(10 * time.Second)
+	cmd := exec.Command("go", "run", ".", "artisan")
+	output, err := cmd.CombinedOutput()
+	fmt.Println("-=-=-=", string(output))
+	s.NoError(err)
 
 	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
