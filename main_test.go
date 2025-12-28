@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
 	"testing"
 	"time"
@@ -39,8 +40,17 @@ func (s *MainTestSuite) TearDownTest() {
 func (s *MainTestSuite) TestPackageInstall_All() {
 	s.NoError(facades.Artisan().Call("package:install --all --default --dev"))
 
+	content, err := file.GetContent(".env.example")
+	s.NoError(err)
+	s.NoError(file.PutContent(".env", content))
+
+	s.NoError(facades.Artisan().Call("key:generate"))
+
 	go func() {
-		s.NoError(exec.Command("go", "run", ".").Run())
+		cmd := exec.Command("go", "run", ".")
+		output, err := cmd.CombinedOutput()
+		fmt.Println(string(output)) // to log actual error details
+		s.NoError(err)
 	}()
 
 	time.Sleep(2 * time.Second)
