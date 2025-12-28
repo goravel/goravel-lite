@@ -64,8 +64,7 @@ jobs:
       - name: Create PR
         if: env.NO_CHANGES != 'true'
         run: |
-          # echo "${{ secrets.REPO_B_PAT }}" | gh auth login --with-token
-          gh auth login --with-token
+          echo "${{ secrets.PAT }}" | gh auth login --with-token
           
           cd goravel
           
