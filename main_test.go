@@ -178,15 +178,11 @@ func (s *MainTestSuite) TestPackageInstall_Http() {
 	s.NoError(facades.Artisan().Call("package:install Http --default --dev"))
 	s.FileExists(path.Facade("http.go"))
 	s.FileExists(path.Config("http.go"))
-	s.FileExists(path.Config("jwt.go"))
-	s.FileExists(path.Config("cors.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&http.ServiceProvider{},"))
 
 	s.NoError(facades.Artisan().Call("package:uninstall Http"))
 	s.NoFileExists(path.Facade("http.go"))
 	s.NoFileExists(path.Config("http.go"))
-	s.NoFileExists(path.Config("jwt.go"))
-	s.NoFileExists(path.Config("cors.go"))
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&http.ServiceProvider{},"))
 }
 
@@ -268,7 +264,7 @@ func (s *MainTestSuite) TestPackageInstall_Queue() {
 	s.FileExists(path.Config("queue.go"))
 	s.FileExists(path.Migration("20210101000001_create_jobs_table.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&queue.ServiceProvider{},"))
-	s.True(file.Contains(path.Bootstrap("app.go"), "Migrations()"))
+	s.True(file.Contains(path.Bootstrap("app.go"), "WithMigrations(Migrations)"))
 	s.True(file.Contains(path.Bootstrap("migrations.go"), "M20210101000001CreateJobsTable{}"))
 
 	s.NoError(facades.Artisan().Call("package:uninstall Queue"))
@@ -276,7 +272,7 @@ func (s *MainTestSuite) TestPackageInstall_Queue() {
 	s.NoFileExists(path.Config("queue.go"))
 	s.NoFileExists(path.Migration("20210101000001_create_jobs_table.go"))
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&queue.ServiceProvider{},"))
-	s.True(file.Contains(path.Bootstrap("app.go"), "Migrations()"))
+	s.True(file.Contains(path.Bootstrap("app.go"), "WithMigrations(Migrations)"))
 	s.False(file.Contains(path.Bootstrap("migrations.go"), "M20210101000001CreateJobsTable{}"))
 }
 
@@ -305,6 +301,8 @@ func (s *MainTestSuite) TestPackageInstall_Route() {
 	s.FileExists(path.Resource("views", "welcome.tmpl"))
 	s.FileExists(path.Route("web.go"))
 	s.FileExists(path.Facade("route.go"))
+	s.FileExists(path.Config("jwt.go"))
+	s.FileExists(path.Config("cors.go"))
 	s.True(file.Contains(path.Base(".env.example"), `
 APP_URL=http://localhost
 APP_HOST=127.0.0.1
@@ -322,6 +320,8 @@ JWT_SECRET=
 	s.NoFileExists(path.Resource("views", "welcome.tmpl"))
 	s.NoFileExists(path.Route("web.go"))
 	s.NoFileExists(path.Facade("route.go"))
+	s.NoFileExists(path.Config("jwt.go"))
+	s.NoFileExists(path.Config("cors.go"))
 }
 
 func (s *MainTestSuite) TestPackageInstall_Schedule() {
@@ -410,13 +410,13 @@ func (s *MainTestSuite) TestPackageInstall_Telemetry() {
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
 	s.FileExists(path.Config("telemetry.go"))
 	s.FileExists(path.Facade("telemetry.go"))
-	s.True(file.Contains(path.Config("logging.go"), "otel"))
+	s.True(file.Contains(path.Config("logging.go"), "instrument_name"))
 
 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
 	s.NoFileExists(path.Config("telemetry.go"))
 	s.NoFileExists(path.Facade("telemetry.go"))
-	s.False(file.Contains(path.Config("logging.go"), "otel"))
+	s.False(file.Contains(path.Config("logging.go"), "instrument_name"))
 }
 
 func (s *MainTestSuite) TestPackageInstall_Testing() {
