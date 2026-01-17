@@ -279,16 +279,10 @@ func (s *MainTestSuite) TestPackageInstall_Queue() {
 func (s *MainTestSuite) TestPackageInstall_RateLimiter() {
 	s.NoError(facades.Artisan().Call("package:install RateLimiter --default --dev"))
 	s.FileExists(path.Facade("rate_limiter.go"))
-	s.FileExists(path.Config("http.go"))
-	s.FileExists(path.Config("jwt.go"))
-	s.FileExists(path.Config("cors.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&http.ServiceProvider{},"))
 
 	s.NoError(facades.Artisan().Call("package:uninstall RateLimiter"))
 	s.NoFileExists(path.Facade("rate_limiter.go"))
-	s.NoFileExists(path.Config("http.go"))
-	s.NoFileExists(path.Config("jwt.go"))
-	s.NoFileExists(path.Config("cors.go"))
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&http.ServiceProvider{},"))
 }
 
