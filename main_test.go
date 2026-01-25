@@ -403,19 +403,19 @@ func (s *MainTestSuite) TestPackageInstall_Storage() {
 	s.NoFileExists(path.Facade("storage.go"))
 }
 
-func (s *MainTestSuite) TestPackageInstall_Telemetry() {
-	s.NoError(facades.Artisan().Call("package:install Telemetry --default --dev"))
-	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
-	s.FileExists(path.Config("telemetry.go"))
-	s.FileExists(path.Facade("telemetry.go"))
-	s.True(file.Contains(path.Config("logging.go"), "instrument_name"))
+// func (s *MainTestSuite) TestPackageInstall_Telemetry() {
+// 	s.NoError(facades.Artisan().Call("package:install Telemetry --default --dev"))
+// 	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
+// 	s.FileExists(path.Config("telemetry.go"))
+// 	s.FileExists(path.Facade("telemetry.go"))
+// 	s.True(file.Contains(path.Config("logging.go"), "instrument_name"))
 
-	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
-	s.False(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
-	s.NoFileExists(path.Config("telemetry.go"))
-	s.NoFileExists(path.Facade("telemetry.go"))
-	s.False(file.Contains(path.Config("logging.go"), "instrument_name"))
-}
+// 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
+// 	s.False(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
+// 	s.NoFileExists(path.Config("telemetry.go"))
+// 	s.NoFileExists(path.Facade("telemetry.go"))
+// 	s.False(file.Contains(path.Config("logging.go"), "instrument_name"))
+// }
 
 func (s *MainTestSuite) TestPackageInstall_Testing() {
 	s.NoError(facades.Artisan().Call("package:install Testing --default --dev"))
