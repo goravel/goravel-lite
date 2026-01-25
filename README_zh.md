@@ -56,6 +56,7 @@ Goravel 是一个功能完备、具有良好扩展能力的 Web 应用程序框�
 | [Migrate](https://www.goravel.dev/zh_CN/database/migrations.html) | 支持版本控制的数据库迁移 |
 | [Orm](https://www.goravel.dev/zh_CN/orm/getting-started.html) | 优雅的 ORM 数据库操作实现 |
 | [Package Development](https://www.goravel.dev/zh_CN/digging-deeper/package-development.html) | 构建可重用的扩展包以扩展框架功能 |
+| [Process](https://www.goravel.dev/zh_CN/digging-deeper/process.html) | 围绕 Go 标准 os/exec 包构建的表达力强且优雅的 API |
 | [Queue](https://www.goravel.dev/zh_CN/digging-deeper/queues.html) | 将耗时任务延迟到后台任务处理 |
 | [Seeder](https://www.goravel.dev/zh_CN/database/seeding.html) | 使用测试或初始数据填充数据库表 |
 | [Session](https://www.goravel.dev/zh_CN/the-basics/session.html) | HTTP Session 会话管理 |
@@ -63,8 +64,6 @@ Goravel 是一个功能完备、具有良好扩展能力的 Web 应用程序框�
 | [Testing](https://www.goravel.dev/zh_CN/testing/getting-started.html) | HTTP 测试、模拟和断言工具 |
 | [Validation](https://www.goravel.dev/zh_CN/the-basics/validation.html) | 使用规则验证传入的请求数据 |
 | [View](https://www.goravel.dev/zh_CN/the-basics/views.html) | HTML 模板引擎 |
-| [TODO Process](https://www.goravel.dev/zh_CN/digging-deeper/process.html) | 长时间运行的命令行进程管理 |
-| [TODO Telemetry](https://www.goravel.dev/zh_CN/digging-deeper/process.html) | 长时间运行的命令行进程管理 |
 
 ## 与 Laravel 对比
 
