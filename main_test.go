@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os/exec"
 	"testing"
 
 	"github.com/goravel/framework/support/file"
@@ -30,18 +29,17 @@ func (s *MainTestSuite) SetupSuite() {
 }
 
 func (s *MainTestSuite) TearDownTest() {
-	s.NoError(exec.Command("git", "checkout", ".").Run())
-	s.NoError(exec.Command("git", "clean", "-fd").Run())
-	s.NoError(exec.Command("go", "mod", "tidy").Run())
+	s.False(facades.Process().Run("git", "checkout", ".").Failed())
+	s.False(facades.Process().Run("git", "clean", "-fd").Failed())
+	s.False(facades.Process().Run("go", "mod", "tidy").Failed())
 }
 
 func (s *MainTestSuite) TestPackageInstall_All() {
 	s.NoError(facades.Artisan().Call("package:install --all --default --dev"))
 
-	s.NoError(exec.Command("go", "run", ".", "artisan").Run())
+	s.False(facades.Process().Run("go", "run", ".", "artisan").Failed())
 
 	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
-	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
 	s.NoError(facades.Artisan().Call("package:uninstall Testing"))
 	s.NoError(facades.Artisan().Call("package:uninstall Grpc"))
 	s.NoError(facades.Artisan().Call("package:uninstall Hash"))
@@ -53,7 +51,6 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 	s.NoError(facades.Artisan().Call("package:uninstall Validation"))
 	s.NoError(facades.Artisan().Call("package:uninstall Lang"))
 	s.NoError(facades.Artisan().Call("package:uninstall Mail"))
-	s.NoError(facades.Artisan().Call("package:uninstall Process"))
 	s.NoError(facades.Artisan().Call("package:uninstall Crypt"))
 	s.NoError(facades.Artisan().Call("package:uninstall RateLimiter"))
 	s.NoError(facades.Artisan().Call("package:uninstall Schedule"))
