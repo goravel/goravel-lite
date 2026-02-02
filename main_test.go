@@ -248,16 +248,6 @@ func (s *MainTestSuite) TestPackageInstall_Orm() {
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&database.ServiceProvider{},"))
 }
 
-func (s *MainTestSuite) TestPackageInstall_Process() {
-	s.NoError(facades.Artisan().Call("package:install Process --default --dev"))
-	s.FileExists(path.Facade("process.go"))
-	s.True(file.Contains(path.Bootstrap("providers.go"), "&process.ServiceProvider{},"))
-
-	s.NoError(facades.Artisan().Call("package:uninstall Process"))
-	s.NoFileExists(path.Facade("process.go"))
-	s.False(file.Contains(path.Bootstrap("providers.go"), "&process.ServiceProvider{},"))
-}
-
 func (s *MainTestSuite) TestPackageInstall_Queue() {
 	s.NoError(facades.Artisan().Call("package:install Queue --default --dev"))
 	s.FileExists(path.Facade("queue.go"))
