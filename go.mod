@@ -3,7 +3,7 @@ module goravel
 go 1.24.0
 
 require (
-	github.com/goravel/framework v1.16.1-0.20260202091915-d840a40e6118
+	github.com/goravel/framework v1.17.0
 	github.com/stretchr/testify v1.11.1
 )
 
