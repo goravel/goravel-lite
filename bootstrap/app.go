@@ -10,5 +10,5 @@ import (
 func Boot() contractsfoundation.Application {
 	return foundation.Setup().
 		WithConfig(config.Boot).
-		Start()
+		Create()
 }
