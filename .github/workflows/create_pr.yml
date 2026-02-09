@@ -35,7 +35,7 @@ jobs:
       - name: Sync Files from goravel-lite to goravel
         run: |
           cd goravel-lite
-          ./artisan package:install --all --default --dev
+          ./artisan package:install --all --default
           
           if [ -z "$(git status --porcelain)" ]; then
             echo "ℹ️ No changes detected, exiting"
