@@ -1,7 +1,7 @@
 name: Create Pr For Goravel
 on:
   push:
-    branches: [master]
+    branches: [v1.17.x]
   workflow_dispatch:
 
 concurrency:
@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: goravel-lite
+          ref: v1.17.x
           fetch-depth: 1
 
       - name: Checkout goravel
@@ -25,7 +26,7 @@ jobs:
           token: ${{ secrets.PAT }}
           path: goravel
           fetch-depth: 1
-          ref: master
+          ref: v1.17.x
 
       - name: Configure Git Identity
         run: |
@@ -35,7 +36,7 @@ jobs:
       - name: Sync Files from goravel-lite to goravel
         run: |
           cd goravel-lite
-          ./artisan package:install --all --default --dev
+          ./artisan package:install --all --default
           
           if [ -z "$(git status --porcelain)" ]; then
             echo "ℹ️ No changes detected, exiting"
