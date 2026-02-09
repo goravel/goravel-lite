@@ -70,7 +70,7 @@ jobs:
           cd goravel
           
           gh pr create \
-            --base master \
+            --base v1.17.x \
             --head ${{ env.PR_BRANCH_NAME }} \
             --title "chore: auto sync from goravel-lite" \
             --body "This PR is auto-created by GitHub Action in goravel-lite.
