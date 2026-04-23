@@ -2,10 +2,10 @@ package main
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"testing"
 
 	"github.com/goravel/framework/support/file"
@@ -18,7 +18,8 @@ import (
 
 type MainTestSuite struct {
 	suite.Suite
-	snapshot *workspaceSnapshot
+	baseline   *workspaceBaseline
+	restoreErr error
 }
 
 func TestMainTestSuite(t *testing.T) {
@@ -32,22 +33,40 @@ func (s *MainTestSuite) SetupSuite() {
 	facades.Config().Add("app.name", "Goravel")
 	facades.Config().Add("app.env", "local")
 	facades.Config().Add("app.debug", "true")
+
+	baseline, err := newWorkspaceBaseline(mutableTestPaths)
+	s.Require().NoError(err)
+
+	s.baseline = baseline
 }
 
 func (s *MainTestSuite) SetupTest() {
-	snapshot, err := newWorkspaceSnapshot(mutableTestPaths)
-	s.Require().NoError(err)
-
-	s.snapshot = snapshot
+	if s.restoreErr != nil {
+		s.T().Skipf("workspace restore failed in a previous test: %v", s.restoreErr)
+	}
 }
 
 func (s *MainTestSuite) TearDownTest() {
-	if s.snapshot == nil {
+	if s.baseline == nil || s.restoreErr != nil {
 		return
 	}
 
-	s.NoError(s.snapshot.Restore())
-	s.snapshot = nil
+	if err := s.baseline.Restore(); err != nil {
+		s.restoreErr = err
+		s.T().Fatalf("restore workspace: %v", err)
+	}
+}
+
+func (s *MainTestSuite) TearDownSuite() {
+	if s.baseline == nil {
+		return
+	}
+
+	defer func() {
+		s.baseline = nil
+	}()
+
+	s.Require().NoError(s.baseline.Close())
 }
 
 func (s *MainTestSuite) TestPackageInstall_All() {
@@ -566,135 +585,149 @@ var mutableTestPaths = []string{
 	"tests",
 }
 
-type workspaceSnapshot struct {
+type workspaceBaseline struct {
 	roots   []string
-	entries map[string]snapshotEntry
+	tempDir string
 }
 
-type snapshotEntry struct {
-	mode fs.FileMode
-	data []byte
-	link string
-}
+func newWorkspaceBaseline(paths []string) (*workspaceBaseline, error) {
+	tempDir, err := os.MkdirTemp("", "goravel-lite-workspace-*")
+	if err != nil {
+		return nil, err
+	}
 
-func newWorkspaceSnapshot(paths []string) (*workspaceSnapshot, error) {
-	snapshot := &workspaceSnapshot{
+	baseline := &workspaceBaseline{
 		roots:   make([]string, 0, len(paths)),
-		entries: make(map[string]snapshotEntry),
+		tempDir: tempDir,
 	}
 
 	for _, path := range paths {
 		path = filepath.Clean(path)
-		snapshot.roots = append(snapshot.roots, path)
+		baseline.roots = append(baseline.roots, path)
 
-		if err := snapshot.capture(path); err != nil {
+		if err := baseline.capture(path); err != nil {
+			_ = baseline.Close()
+
 			return nil, err
 		}
 	}
 
-	return snapshot, nil
+	return baseline, nil
 }
 
-func (s *workspaceSnapshot) capture(path string) error {
-	info, err := os.Lstat(path)
-	if errors.Is(err, os.ErrNotExist) {
+func (b *workspaceBaseline) capture(path string) error {
+	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
 		return nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return err
 	}
 
-	if !info.IsDir() || info.Mode()&fs.ModeSymlink != 0 {
-		return s.captureEntry(path)
-	}
-
-	return filepath.WalkDir(path, func(path string, _ fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		return s.captureEntry(path)
-	})
+	return copyPath(path, b.snapshotPath(path))
 }
 
-func (s *workspaceSnapshot) captureEntry(path string) error {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return err
-	}
-
-	entry := snapshotEntry{mode: info.Mode()}
-	switch {
-	case info.Mode()&fs.ModeSymlink != 0:
-		entry.link, err = os.Readlink(path)
-	case info.IsDir():
-	case info.Mode().IsRegular():
-		entry.data, err = os.ReadFile(path)
-	default:
-		err = errors.New("unsupported file type in workspace snapshot: " + path)
-	}
-	if err != nil {
-		return err
-	}
-
-	s.entries[filepath.Clean(path)] = entry
-
-	return nil
-}
-
-func (s *workspaceSnapshot) Restore() error {
-	for _, root := range s.roots {
+func (b *workspaceBaseline) Restore() error {
+	for _, root := range b.roots {
 		if err := os.RemoveAll(root); err != nil {
 			return err
 		}
 	}
 
-	paths := make([]string, 0, len(s.entries))
-	for path := range s.entries {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
-
-	for _, path := range paths {
-		if err := s.restoreEntry(path, s.entries[path]); err != nil {
+	for _, root := range b.roots {
+		snapshotPath := b.snapshotPath(root)
+		if _, err := os.Lstat(snapshotPath); errors.Is(err, os.ErrNotExist) {
+			continue
+		} else if err != nil {
 			return err
 		}
-	}
 
-	for _, path := range paths {
-		entry := s.entries[path]
-		if entry.mode.IsDir() {
-			if err := os.Chmod(path, entry.mode.Perm()); err != nil {
-				return err
-			}
+		if err := copyPath(snapshotPath, root); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (s *workspaceSnapshot) restoreEntry(path string, entry snapshotEntry) error {
-	switch {
-	case entry.mode&fs.ModeSymlink != 0:
-		if err := mkdirParent(path); err != nil {
-			return err
-		}
+func (b *workspaceBaseline) Close() error {
+	return os.RemoveAll(b.tempDir)
+}
 
-		return os.Symlink(entry.link, path)
-	case entry.mode.IsDir():
-		return os.MkdirAll(path, entry.mode.Perm())
-	case entry.mode.IsRegular():
-		if err := mkdirParent(path); err != nil {
-			return err
-		}
-		if err := os.WriteFile(path, entry.data, entry.mode.Perm()); err != nil {
-			return err
-		}
+func (b *workspaceBaseline) snapshotPath(path string) string {
+	return filepath.Join(b.tempDir, path)
+}
 
-		return os.Chmod(path, entry.mode.Perm())
-	default:
-		return errors.New("unsupported file type in workspace snapshot: " + path)
+func copyPath(src, dst string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
 	}
+
+	switch {
+	case info.Mode()&fs.ModeSymlink != 0:
+		if err := mkdirParent(dst); err != nil {
+			return err
+		}
+
+		link, err := os.Readlink(src)
+		if err != nil {
+			return err
+		}
+
+		return os.Symlink(link, dst)
+	case info.IsDir():
+		if err := os.MkdirAll(dst, info.Mode().Perm()); err != nil {
+			return err
+		}
+
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			if err := copyPath(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name())); err != nil {
+				return err
+			}
+		}
+
+		return os.Chmod(dst, info.Mode().Perm())
+	case info.Mode().IsRegular():
+		return copyFile(src, dst, info.Mode())
+	default:
+		return errors.New("unsupported file type in workspace baseline: " + src)
+	}
+}
+
+func copyFile(src, dst string, mode fs.FileMode) (err error) {
+	if err := mkdirParent(dst); err != nil {
+		return err
+	}
+
+	input, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := input.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	output, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := output.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	if _, err := io.Copy(output, input); err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, mode.Perm())
 }
 
 func mkdirParent(path string) error {
