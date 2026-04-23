@@ -1,6 +1,11 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/goravel/framework/support/file"
@@ -13,6 +18,7 @@ import (
 
 type MainTestSuite struct {
 	suite.Suite
+	snapshot *workspaceSnapshot
 }
 
 func TestMainTestSuite(t *testing.T) {
@@ -28,41 +34,54 @@ func (s *MainTestSuite) SetupSuite() {
 	facades.Config().Add("app.debug", "true")
 }
 
+func (s *MainTestSuite) SetupTest() {
+	snapshot, err := newWorkspaceSnapshot(mutableTestPaths)
+	s.Require().NoError(err)
+
+	s.snapshot = snapshot
+}
+
 func (s *MainTestSuite) TearDownTest() {
-	s.False(facades.Process().Run("git", "checkout", ".").Failed())
-	s.False(facades.Process().Run("git", "clean", "-fd").Failed())
-	s.False(facades.Process().Run("go", "mod", "tidy").Failed())
+	if s.snapshot == nil {
+		return
+	}
+
+	s.NoError(s.snapshot.Restore())
+	s.snapshot = nil
 }
 
 func (s *MainTestSuite) TestPackageInstall_All() {
-	s.NoError(facades.Artisan().Call("package:install --all --default --dev"))
+	s.artisan("package:install --all --default --dev")
 
 	s.False(facades.Process().Run("go", "run", ".", "artisan").Failed())
 
-	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
-	s.NoError(facades.Artisan().Call("package:uninstall Testing"))
-	s.NoError(facades.Artisan().Call("package:uninstall Grpc"))
-	s.NoError(facades.Artisan().Call("package:uninstall Hash"))
-	s.NoError(facades.Artisan().Call("package:uninstall Route"))
-	s.NoError(facades.Artisan().Call("package:uninstall Http"))
-	s.NoError(facades.Artisan().Call("package:uninstall View"))
-	s.NoError(facades.Artisan().Call("package:uninstall Session"))
-	s.NoError(facades.Artisan().Call("package:uninstall Storage"))
-	s.NoError(facades.Artisan().Call("package:uninstall Validation"))
-	s.NoError(facades.Artisan().Call("package:uninstall Lang"))
-	s.NoError(facades.Artisan().Call("package:uninstall Mail"))
-	s.NoError(facades.Artisan().Call("package:uninstall Crypt"))
-	s.NoError(facades.Artisan().Call("package:uninstall RateLimiter"))
-	s.NoError(facades.Artisan().Call("package:uninstall Schedule"))
-	s.NoError(facades.Artisan().Call("package:uninstall Gate"))
-	s.NoError(facades.Artisan().Call("package:uninstall Cache"))
-	s.NoError(facades.Artisan().Call("package:uninstall Event"))
-	s.NoError(facades.Artisan().Call("package:uninstall Queue"))
-	s.NoError(facades.Artisan().Call("package:uninstall Schema"))
-	s.NoError(facades.Artisan().Call("package:uninstall Seeder"))
-	s.NoError(facades.Artisan().Call("package:uninstall DB"))
-	s.NoError(facades.Artisan().Call("package:uninstall Orm"))
-	s.NoError(facades.Artisan().Call("package:uninstall Log"))
+	s.uninstallPackages(
+		"Auth",
+		"Testing",
+		"Grpc",
+		"Hash",
+		"Route",
+		"Http",
+		"View",
+		"Session",
+		"Storage",
+		"Validation",
+		"Lang",
+		"Mail",
+		"Crypt",
+		"RateLimiter",
+		"Schedule",
+		"Gate",
+		"Event",
+		"Queue",
+		"Schema",
+		"Seeder",
+		"DB",
+		"Orm",
+		"Cache",
+		"Telemetry",
+		"Log",
+	)
 }
 
 func (s *MainTestSuite) TestPackageInstall_Auth() {
@@ -390,19 +409,19 @@ func (s *MainTestSuite) TestPackageInstall_Storage() {
 	s.NoFileExists(path.Facade("storage.go"))
 }
 
-// func (s *MainTestSuite) TestPackageInstall_Telemetry() {
-// 	s.NoError(facades.Artisan().Call("package:install Telemetry --default --dev"))
-// 	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
-// 	s.FileExists(path.Config("telemetry.go"))
-// 	s.FileExists(path.Facade("telemetry.go"))
-// 	s.True(file.Contains(path.Config("logging.go"), "instrument_name"))
+func (s *MainTestSuite) TestPackageInstall_Telemetry() {
+	s.NoError(facades.Artisan().Call("package:install Telemetry --default --dev"))
+	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
+	s.FileExists(path.Config("telemetry.go"))
+	s.FileExists(path.Facade("telemetry.go"))
+	s.True(file.Contains(path.Config("logging.go"), "instrument_name"))
 
-// 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
-// 	s.False(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
-// 	s.NoFileExists(path.Config("telemetry.go"))
-// 	s.NoFileExists(path.Facade("telemetry.go"))
-// 	s.False(file.Contains(path.Config("logging.go"), "instrument_name"))
-// }
+	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
+	s.False(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
+	s.NoFileExists(path.Config("telemetry.go"))
+	s.NoFileExists(path.Facade("telemetry.go"))
+	s.False(file.Contains(path.Config("logging.go"), "instrument_name"))
+}
 
 func (s *MainTestSuite) TestPackageInstall_Testing() {
 	s.NoError(facades.Artisan().Call("package:install Testing --default --dev"))
@@ -520,4 +539,169 @@ func (s *MainTestSuite) TestPackageInstall_CacheDrivers() {
 	s.False(file.Contains(path.Config("database.go"), "redis"))
 	s.False(file.Contains(path.Config("queue.go"), "redis"))
 	s.False(file.Contains(path.Config("session.go"), "redis"))
+}
+
+func (s *MainTestSuite) artisan(command string) {
+	s.NoError(facades.Artisan().Call(command))
+}
+
+func (s *MainTestSuite) uninstallPackages(packages ...string) {
+	for _, pkg := range packages {
+		s.artisan("package:uninstall " + pkg)
+	}
+}
+
+var mutableTestPaths = []string{
+	".env.example",
+	"go.mod",
+	"go.sum",
+	"bootstrap",
+	"config",
+	"app/facades",
+	"app/http",
+	"database",
+	"public",
+	"resources",
+	"routes",
+	"tests",
+}
+
+type workspaceSnapshot struct {
+	roots   []string
+	entries map[string]snapshotEntry
+}
+
+type snapshotEntry struct {
+	mode fs.FileMode
+	data []byte
+	link string
+}
+
+func newWorkspaceSnapshot(paths []string) (*workspaceSnapshot, error) {
+	snapshot := &workspaceSnapshot{
+		roots:   make([]string, 0, len(paths)),
+		entries: make(map[string]snapshotEntry),
+	}
+
+	for _, path := range paths {
+		path = filepath.Clean(path)
+		snapshot.roots = append(snapshot.roots, path)
+
+		if err := snapshot.capture(path); err != nil {
+			return nil, err
+		}
+	}
+
+	return snapshot, nil
+}
+
+func (s *workspaceSnapshot) capture(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if !info.IsDir() || info.Mode()&fs.ModeSymlink != 0 {
+		return s.captureEntry(path)
+	}
+
+	return filepath.WalkDir(path, func(path string, _ fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		return s.captureEntry(path)
+	})
+}
+
+func (s *workspaceSnapshot) captureEntry(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+
+	entry := snapshotEntry{mode: info.Mode()}
+	switch {
+	case info.Mode()&fs.ModeSymlink != 0:
+		entry.link, err = os.Readlink(path)
+	case info.IsDir():
+	case info.Mode().IsRegular():
+		entry.data, err = os.ReadFile(path)
+	default:
+		err = errors.New("unsupported file type in workspace snapshot: " + path)
+	}
+	if err != nil {
+		return err
+	}
+
+	s.entries[filepath.Clean(path)] = entry
+
+	return nil
+}
+
+func (s *workspaceSnapshot) Restore() error {
+	for _, root := range s.roots {
+		if err := os.RemoveAll(root); err != nil {
+			return err
+		}
+	}
+
+	paths := make([]string, 0, len(s.entries))
+	for path := range s.entries {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	for _, path := range paths {
+		if err := s.restoreEntry(path, s.entries[path]); err != nil {
+			return err
+		}
+	}
+
+	for _, path := range paths {
+		entry := s.entries[path]
+		if entry.mode.IsDir() {
+			if err := os.Chmod(path, entry.mode.Perm()); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *workspaceSnapshot) restoreEntry(path string, entry snapshotEntry) error {
+	switch {
+	case entry.mode&fs.ModeSymlink != 0:
+		if err := mkdirParent(path); err != nil {
+			return err
+		}
+
+		return os.Symlink(entry.link, path)
+	case entry.mode.IsDir():
+		return os.MkdirAll(path, entry.mode.Perm())
+	case entry.mode.IsRegular():
+		if err := mkdirParent(path); err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, entry.data, entry.mode.Perm()); err != nil {
+			return err
+		}
+
+		return os.Chmod(path, entry.mode.Perm())
+	default:
+		return errors.New("unsupported file type in workspace snapshot: " + path)
+	}
+}
+
+func mkdirParent(path string) error {
+	parent := filepath.Dir(path)
+	if parent == "." {
+		return nil
+	}
+
+	return os.MkdirAll(parent, 0755)
 }
