@@ -1,6 +1,11 @@
 package main
 
 import (
+	"errors"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/goravel/framework/support/file"
@@ -13,6 +18,8 @@ import (
 
 type MainTestSuite struct {
 	suite.Suite
+	baseline   *workspaceBaseline
+	restoreErr error
 }
 
 func TestMainTestSuite(t *testing.T) {
@@ -26,43 +33,74 @@ func (s *MainTestSuite) SetupSuite() {
 	facades.Config().Add("app.name", "Goravel")
 	facades.Config().Add("app.env", "local")
 	facades.Config().Add("app.debug", "true")
+
+	baseline, err := newWorkspaceBaseline(mutableTestPaths)
+	s.Require().NoError(err)
+
+	s.baseline = baseline
+}
+
+func (s *MainTestSuite) SetupTest() {
+	if s.restoreErr != nil {
+		s.T().Skipf("workspace restore failed in a previous test: %v", s.restoreErr)
+	}
 }
 
 func (s *MainTestSuite) TearDownTest() {
-	s.False(facades.Process().Run("git", "checkout", ".").Failed())
-	s.False(facades.Process().Run("git", "clean", "-fd").Failed())
-	s.False(facades.Process().Run("go", "mod", "tidy").Failed())
+	if s.baseline == nil || s.restoreErr != nil {
+		return
+	}
+
+	if err := s.baseline.Restore(); err != nil {
+		s.restoreErr = err
+		s.T().Fatalf("restore workspace: %v", err)
+	}
+}
+
+func (s *MainTestSuite) TearDownSuite() {
+	if s.baseline == nil {
+		return
+	}
+
+	defer func() {
+		s.baseline = nil
+	}()
+
+	s.Require().NoError(s.baseline.Close())
 }
 
 func (s *MainTestSuite) TestPackageInstall_All() {
-	s.NoError(facades.Artisan().Call("package:install --all --default --dev"))
+	s.artisan("package:install --all --default --dev")
 
 	s.False(facades.Process().Run("go", "run", ".", "artisan").Failed())
 
-	s.NoError(facades.Artisan().Call("package:uninstall Auth"))
-	s.NoError(facades.Artisan().Call("package:uninstall Testing"))
-	s.NoError(facades.Artisan().Call("package:uninstall Grpc"))
-	s.NoError(facades.Artisan().Call("package:uninstall Hash"))
-	s.NoError(facades.Artisan().Call("package:uninstall Route"))
-	s.NoError(facades.Artisan().Call("package:uninstall Http"))
-	s.NoError(facades.Artisan().Call("package:uninstall View"))
-	s.NoError(facades.Artisan().Call("package:uninstall Session"))
-	s.NoError(facades.Artisan().Call("package:uninstall Storage"))
-	s.NoError(facades.Artisan().Call("package:uninstall Validation"))
-	s.NoError(facades.Artisan().Call("package:uninstall Lang"))
-	s.NoError(facades.Artisan().Call("package:uninstall Mail"))
-	s.NoError(facades.Artisan().Call("package:uninstall Crypt"))
-	s.NoError(facades.Artisan().Call("package:uninstall RateLimiter"))
-	s.NoError(facades.Artisan().Call("package:uninstall Schedule"))
-	s.NoError(facades.Artisan().Call("package:uninstall Gate"))
-	s.NoError(facades.Artisan().Call("package:uninstall Cache"))
-	s.NoError(facades.Artisan().Call("package:uninstall Event"))
-	s.NoError(facades.Artisan().Call("package:uninstall Queue"))
-	s.NoError(facades.Artisan().Call("package:uninstall Schema"))
-	s.NoError(facades.Artisan().Call("package:uninstall Seeder"))
-	s.NoError(facades.Artisan().Call("package:uninstall DB"))
-	s.NoError(facades.Artisan().Call("package:uninstall Orm"))
-	s.NoError(facades.Artisan().Call("package:uninstall Log"))
+	s.uninstallPackages(
+		"Auth",
+		"Testing",
+		"Grpc",
+		"Hash",
+		"Route",
+		"Http",
+		"View",
+		"Session",
+		"Storage",
+		"Validation",
+		"Lang",
+		"Mail",
+		"Crypt",
+		"RateLimiter",
+		"Schedule",
+		"Gate",
+		"Event",
+		"Queue",
+		"Schema",
+		"Seeder",
+		"DB",
+		"Orm",
+		"Cache",
+		"Telemetry",
+		"Log",
+	)
 }
 
 func (s *MainTestSuite) TestPackageInstall_Auth() {
@@ -390,19 +428,19 @@ func (s *MainTestSuite) TestPackageInstall_Storage() {
 	s.NoFileExists(path.Facade("storage.go"))
 }
 
-// func (s *MainTestSuite) TestPackageInstall_Telemetry() {
-// 	s.NoError(facades.Artisan().Call("package:install Telemetry --default --dev"))
-// 	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
-// 	s.FileExists(path.Config("telemetry.go"))
-// 	s.FileExists(path.Facade("telemetry.go"))
-// 	s.True(file.Contains(path.Config("logging.go"), "instrument_name"))
+func (s *MainTestSuite) TestPackageInstall_Telemetry() {
+	s.NoError(facades.Artisan().Call("package:install Telemetry --default --dev"))
+	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
+	s.FileExists(path.Config("telemetry.go"))
+	s.FileExists(path.Facade("telemetry.go"))
+	s.True(file.Contains(path.Config("logging.go"), "instrument_name"))
 
-// 	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
-// 	s.False(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
-// 	s.NoFileExists(path.Config("telemetry.go"))
-// 	s.NoFileExists(path.Facade("telemetry.go"))
-// 	s.False(file.Contains(path.Config("logging.go"), "instrument_name"))
-// }
+	s.NoError(facades.Artisan().Call("package:uninstall Telemetry"))
+	s.False(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
+	s.NoFileExists(path.Config("telemetry.go"))
+	s.NoFileExists(path.Facade("telemetry.go"))
+	s.False(file.Contains(path.Config("logging.go"), "instrument_name"))
+}
 
 func (s *MainTestSuite) TestPackageInstall_Testing() {
 	s.NoError(facades.Artisan().Call("package:install Testing --default --dev"))
@@ -520,4 +558,183 @@ func (s *MainTestSuite) TestPackageInstall_CacheDrivers() {
 	s.False(file.Contains(path.Config("database.go"), "redis"))
 	s.False(file.Contains(path.Config("queue.go"), "redis"))
 	s.False(file.Contains(path.Config("session.go"), "redis"))
+}
+
+func (s *MainTestSuite) artisan(command string) {
+	s.NoError(facades.Artisan().Call(command))
+}
+
+func (s *MainTestSuite) uninstallPackages(packages ...string) {
+	for _, pkg := range packages {
+		s.artisan("package:uninstall " + pkg)
+	}
+}
+
+var mutableTestPaths = []string{
+	".env.example",
+	"go.mod",
+	"go.sum",
+	"bootstrap",
+	"config",
+	"app/facades",
+	"app/http",
+	"database",
+	"public",
+	"resources",
+	"routes",
+	"tests",
+}
+
+type workspaceBaseline struct {
+	roots   []string
+	tempDir string
+}
+
+func newWorkspaceBaseline(paths []string) (*workspaceBaseline, error) {
+	tempDir, err := os.MkdirTemp("", "goravel-lite-workspace-*")
+	if err != nil {
+		return nil, err
+	}
+
+	baseline := &workspaceBaseline{
+		roots:   make([]string, 0, len(paths)),
+		tempDir: tempDir,
+	}
+
+	for _, path := range paths {
+		path = filepath.Clean(path)
+		baseline.roots = append(baseline.roots, path)
+
+		if err := baseline.capture(path); err != nil {
+			_ = baseline.Close()
+
+			return nil, err
+		}
+	}
+
+	return baseline, nil
+}
+
+func (b *workspaceBaseline) capture(path string) error {
+	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	return copyPath(path, b.snapshotPath(path))
+}
+
+func (b *workspaceBaseline) Restore() error {
+	for _, root := range b.roots {
+		if err := os.RemoveAll(root); err != nil {
+			return err
+		}
+	}
+
+	for _, root := range b.roots {
+		snapshotPath := b.snapshotPath(root)
+		if _, err := os.Lstat(snapshotPath); errors.Is(err, os.ErrNotExist) {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		if err := copyPath(snapshotPath, root); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (b *workspaceBaseline) Close() error {
+	return os.RemoveAll(b.tempDir)
+}
+
+func (b *workspaceBaseline) snapshotPath(path string) string {
+	return filepath.Join(b.tempDir, path)
+}
+
+func copyPath(src, dst string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case info.Mode()&fs.ModeSymlink != 0:
+		if err := mkdirParent(dst); err != nil {
+			return err
+		}
+
+		link, err := os.Readlink(src)
+		if err != nil {
+			return err
+		}
+
+		return os.Symlink(link, dst)
+	case info.IsDir():
+		if err := os.MkdirAll(dst, info.Mode().Perm()); err != nil {
+			return err
+		}
+
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			if err := copyPath(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name())); err != nil {
+				return err
+			}
+		}
+
+		return os.Chmod(dst, info.Mode().Perm())
+	case info.Mode().IsRegular():
+		return copyFile(src, dst, info.Mode())
+	default:
+		return errors.New("unsupported file type in workspace baseline: " + src)
+	}
+}
+
+func copyFile(src, dst string, mode fs.FileMode) (err error) {
+	if err := mkdirParent(dst); err != nil {
+		return err
+	}
+
+	input, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := input.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	output, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := output.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
+
+	if _, err := io.Copy(output, input); err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, mode.Perm())
+}
+
+func mkdirParent(path string) error {
+	parent := filepath.Dir(path)
+	if parent == "." {
+		return nil
+	}
+
+	return os.MkdirAll(parent, 0755)
 }
