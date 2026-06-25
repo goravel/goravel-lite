@@ -20,9 +20,11 @@ Framework source: `github.com/goravel/framework`. Reference app:
 
 ```shell
 go install github.com/goravel/installer/goravel@latest
-goravel new blog                          # or clone a scaffold manually
-git clone --depth=1 https://github.com/goravel/goravel-lite.git && rm -rf goravel-lite/.git*
-cd goravel-lite && go mod tidy && cp .env.example .env
+goravel new blog
+# Or clone manually:
+#   Full scaffold:  git clone --depth=1 https://github.com/goravel/goravel.git
+#   Lite scaffold:  git clone --depth=1 https://github.com/goravel/goravel-lite.git
+cd <project> && go mod tidy && cp .env.example .env
 ./artisan key:generate                    # 32-char APP_KEY for encryption
 ./artisan jwt:secret                      # only if using Authentication
 go run .                                  # start (air for live reload)
@@ -30,7 +32,7 @@ go run .                                  # start (air for live reload)
 
 ## Project Structure
 
-The full scaffold (`goravel/goravel`) installs every facade. `goravel-lite`
+The full scaffold installs every facade. The lite scaffold
 ships a subset; install the rest with `./artisan package:install`. Add folders
 freely, but don't rename defaults without `WithPaths()` in `bootstrap/app.go`.
 
@@ -87,14 +89,14 @@ func Cache() cache.Cache { return App().MakeCache() }
 
 ### Install / Uninstall
 
-`goravel-lite` ships only `App`, `Artisan`, `Config`, `Process`. Add the rest
+The lite scaffold ships only `App`, `Artisan`, `Config`, `Process`. Add the rest
 (rewrites `providers.go`, `config/`, `.env.example`, runs `go mod tidy`):
 
 ```shell
 ./artisan package:install Route --default    # one facade
 ./artisan package:install --all --default    # all facades + default drivers
 ./artisan package:uninstall Route
-./artisan package:install github.com/goravel/redis --default  # external driver
+./artisan package:install github.com/goravel/redis  # external driver
 ```
 
 > In the interactive picker, press `x` to select, then `Enter` to confirm.
