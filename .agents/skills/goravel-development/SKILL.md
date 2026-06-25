@@ -116,6 +116,16 @@ read the version in `go.mod` (e.g. `v1.18.0`) and browse
 
 From Go: `facades.Artisan().Call("list")`.
 
+## Scaffolding Commands (make:*)
+
+AI agents: always run `go run . artisan list | grep make:` to discover all
+available scaffolding generators, then use them instead of hand-writing
+boilerplate files. The available `make:*` commands depend on which facades
+are installed — the list grows as you `package:install` more packages.
+
+Run `go run . artisan make:<name> --help` to see flags and options for a
+specific command before using it.
+
 ## Testing
 
 `testify` suites + `tests.TestCase`. Scaffold: `./artisan make:test feature/UserTest`.
