@@ -171,3 +171,9 @@ package. `go test ./... --env=.env.testing` swaps root env.
 
 - **Reference app:** `github.com/goravel/example` — demonstrates every facade. Search first.
 - **Docs:** https://www.goravel.dev (source `github.com/goravel/docs`).
+
+## Custom Extensions
+
+You can extend this skill with project-specific rules by creating
+`.agents/skills/goravel-development/CUSTOM.md`. AI agents reading this
+skill MUST also read and apply that file when it exists.
