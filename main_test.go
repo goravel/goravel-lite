@@ -75,6 +75,7 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 	s.False(facades.Process().Run("go", "run", ".", "artisan").Failed())
 
 	s.uninstallPackages(
+		"AI",
 		"Auth",
 		"Testing",
 		"Grpc",
@@ -101,6 +102,18 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 		"Telemetry",
 		"Log",
 	)
+}
+
+func (s *MainTestSuite) TestPackageInstall_AI() {
+	s.NoError(facades.Artisan().Call("package:install AI --default --dev"))
+	s.FileExists(path.Facade("ai.go"))
+	s.FileExists(path.Config("ai.go"))
+	s.True(file.Contains(path.Bootstrap("providers.go"), "&ai.ServiceProvider{},"))
+
+	s.NoError(facades.Artisan().Call("package:uninstall AI"))
+	s.NoFileExists(path.Facade("ai.go"))
+	s.NoFileExists(path.Config("ai.go"))
+	s.False(file.Contains(path.Bootstrap("providers.go"), "&ai.ServiceProvider{},"))
 }
 
 func (s *MainTestSuite) TestPackageInstall_Auth() {
