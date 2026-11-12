@@ -19,8 +19,8 @@ jobs:
     steps:
       - name: Validate source branch
         run: |
-          if [ "${TARGET_BRANCH}" != "master" ] && [[ ! "${TARGET_BRANCH}" =~ ^v1\..+\.x$ ]]; then
-            echo "::error::Unsupported branch '${TARGET_BRANCH}'. This workflow syncs master and v1.<minor>.x only."
+          if [[ "${TARGET_BRANCH}" != "master" && ! "${TARGET_BRANCH}" =~ ^v[0-9]+\..+\.x$ ]]; then
+            echo "::error::Unsupported branch '${TARGET_BRANCH}'. Pick master or a version branch such as v1.18.x."
             exit 1
           fi
 
@@ -32,8 +32,14 @@ jobs:
 
       - name: Check target branch in goravel/goravel
         run: |
-          if ! git ls-remote --exit-code --heads https://github.com/goravel/goravel.git "${TARGET_BRANCH}" > /dev/null; then
+          status=0
+          git ls-remote --exit-code --heads https://github.com/goravel/goravel.git "${TARGET_BRANCH}" > /dev/null || status=$?
+          if [ "$status" -eq 2 ]; then
             echo "::error::goravel/goravel has no '${TARGET_BRANCH}' branch. Create it from master before syncing."
+            exit 1
+          fi
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Could not reach goravel/goravel (git ls-remote exited ${status}). Retry the run."
             exit 1
           fi
 
