@@ -1,7 +1,9 @@
 name: Create Pr For Goravel
 on:
   push:
-    branches: [master]
+    branches:
+      - master
+      - 'v1.*.x' # names mirror goravel/goravel
   workflow_dispatch:
 
 concurrency:
@@ -11,12 +13,29 @@ concurrency:
 jobs:
   create-pr-for-goravel:
     runs-on: ubuntu-latest
+    env:
+      # goravel-lite and goravel/goravel share branch names, so the source branch is the base branch.
+      TARGET_BRANCH: ${{ github.ref_name }}
     steps:
+      - name: Validate source branch
+        run: |
+          if [ "${TARGET_BRANCH}" != "master" ] && [[ ! "${TARGET_BRANCH}" =~ ^v1\..+\.x$ ]]; then
+            echo "::error::Unsupported branch '${TARGET_BRANCH}'. This workflow syncs master and v1.<minor>.x only."
+            exit 1
+          fi
+
       - name: Checkout goravel-lite
         uses: actions/checkout@v6
         with:
           path: goravel-lite
           fetch-depth: 1
+
+      - name: Check target branch in goravel/goravel
+        run: |
+          if ! git ls-remote --exit-code --heads https://github.com/goravel/goravel.git "${TARGET_BRANCH}" > /dev/null; then
+            echo "::error::goravel/goravel has no '${TARGET_BRANCH}' branch. Create it from master before syncing."
+            exit 1
+          fi
 
       - name: Checkout goravel
         uses: actions/checkout@v6
@@ -25,7 +44,7 @@ jobs:
           token: ${{ secrets.PAT }}
           path: goravel
           fetch-depth: 1
-          ref: master
+          ref: ${{ env.TARGET_BRANCH }}
 
       - name: Configure Git Identity
         run: |
@@ -69,10 +88,11 @@ jobs:
           cd goravel
           
           gh pr create \
-            --base master \
-            --head ${{ env.PR_BRANCH_NAME }} \
+            --base "${TARGET_BRANCH}" \
+            --head "${PR_BRANCH_NAME}" \
             --title "chore: auto sync from goravel-lite" \
             --body "This PR is auto-created by GitHub Action in goravel-lite.
+            - Source branch: goravel-lite@${TARGET_BRANCH}
             - Trigger event: ${{ github.event_name }}
             - Run ID: ${{ github.run_id }}
             - Sync time: $(date --utc +'%Y-%m-%d %H:%M:%S UTC')"
