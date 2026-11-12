@@ -6,8 +6,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/goravel/framework/support"
 	"github.com/goravel/framework/support/file"
 	"github.com/goravel/framework/support/path"
 	"github.com/stretchr/testify/suite"
@@ -16,6 +19,10 @@ import (
 	"goravel/bootstrap"
 )
 
+// MainTestSuite installs packages on the framework's release line, the one go.mod
+// pins, and never with --dev: --dev fetches drivers from master, and master
+// drivers call framework APIs that line does not have yet. The install helpers
+// below hold that rule, so tests only name what they install.
 type MainTestSuite struct {
 	suite.Suite
 	baseline   *workspaceBaseline
@@ -70,7 +77,7 @@ func (s *MainTestSuite) TearDownSuite() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_All() {
-	s.artisan("package:install --all --default --dev")
+	s.installAllFacades()
 
 	s.False(facades.Process().Run("go", "run", ".", "artisan").Failed())
 
@@ -105,7 +112,7 @@ func (s *MainTestSuite) TestPackageInstall_All() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_AI() {
-	s.NoError(facades.Artisan().Call("package:install AI --default --dev"))
+	s.installFacade("AI")
 	s.FileExists(path.Facade("ai.go"))
 	s.FileExists(path.Config("ai.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&ai.ServiceProvider{},"))
@@ -117,7 +124,7 @@ func (s *MainTestSuite) TestPackageInstall_AI() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Auth() {
-	s.NoError(facades.Artisan().Call("package:install Auth --default --dev"))
+	s.installFacade("Auth")
 	s.FileExists(path.Facade("auth.go"))
 	s.FileExists(path.Config("auth.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&auth.ServiceProvider{},"))
@@ -129,7 +136,7 @@ func (s *MainTestSuite) TestPackageInstall_Auth() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Cache() {
-	s.NoError(facades.Artisan().Call("package:install Cache --default --dev"))
+	s.installFacade("Cache")
 	s.FileExists(path.Facade("cache.go"))
 	s.FileExists(path.Config("cache.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&cache.ServiceProvider{},"))
@@ -141,7 +148,7 @@ func (s *MainTestSuite) TestPackageInstall_Cache() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Crypt() {
-	s.NoError(facades.Artisan().Call("package:install Crypt --default --dev"))
+	s.installFacade("Crypt")
 	s.FileExists(path.Facade("crypt.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&crypt.ServiceProvider{},"))
 
@@ -151,7 +158,7 @@ func (s *MainTestSuite) TestPackageInstall_Crypt() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_DB() {
-	s.NoError(facades.Artisan().Call("package:install DB --default --dev"))
+	s.installFacade("DB")
 	s.FileExists(path.Facade("db.go"))
 	s.FileExists(path.Config("database.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&database.ServiceProvider{},"))
@@ -169,7 +176,7 @@ func (s *MainTestSuite) TestPackageInstall_DB() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Event() {
-	s.NoError(facades.Artisan().Call("package:install Event --default --dev"))
+	s.installFacade("Event")
 	s.FileExists(path.Facade("event.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&event.ServiceProvider{},"))
 
@@ -179,7 +186,7 @@ func (s *MainTestSuite) TestPackageInstall_Event() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Gate() {
-	s.NoError(facades.Artisan().Call("package:install Gate --default --dev"))
+	s.installFacade("Gate")
 	s.FileExists(path.Facade("gate.go"))
 	s.FileExists(path.Config("auth.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&auth.ServiceProvider{},"))
@@ -191,7 +198,7 @@ func (s *MainTestSuite) TestPackageInstall_Gate() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Grpc() {
-	s.NoError(facades.Artisan().Call("package:install Grpc --default --dev"))
+	s.installFacade("Grpc")
 	s.FileExists(path.Facade("grpc.go"))
 	s.FileExists(path.Config("grpc.go"))
 	s.FileExists(path.Route("grpc.go"))
@@ -211,7 +218,7 @@ GRPC_PORT=
 }
 
 func (s *MainTestSuite) TestPackageInstall_Hash() {
-	s.NoError(facades.Artisan().Call("package:install Hash --default --dev"))
+	s.installFacade("Hash")
 	s.FileExists(path.Facade("hash.go"))
 	s.FileExists(path.Config("hashing.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&hash.ServiceProvider{},"))
@@ -223,7 +230,7 @@ func (s *MainTestSuite) TestPackageInstall_Hash() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Http() {
-	s.NoError(facades.Artisan().Call("package:install Http --default --dev"))
+	s.installFacade("Http")
 	s.FileExists(path.Facade("http.go"))
 	s.FileExists(path.Config("http.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&http.ServiceProvider{},"))
@@ -235,7 +242,7 @@ func (s *MainTestSuite) TestPackageInstall_Http() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Lang() {
-	s.NoError(facades.Artisan().Call("package:install Lang --default --dev"))
+	s.installFacade("Lang")
 	s.FileExists(path.Facade("lang.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&translation.ServiceProvider{},"))
 
@@ -245,7 +252,7 @@ func (s *MainTestSuite) TestPackageInstall_Lang() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Log() {
-	s.NoError(facades.Artisan().Call("package:install Log --default --dev"))
+	s.installFacade("Log")
 	s.FileExists(path.Facade("log.go"))
 	s.FileExists(path.Config("logging.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&log.ServiceProvider{},"))
@@ -262,7 +269,7 @@ LOG_LEVEL=debug
 }
 
 func (s *MainTestSuite) TestPackageInstall_Mail() {
-	s.NoError(facades.Artisan().Call("package:install Mail --default --dev"))
+	s.installFacade("Mail")
 	s.FileExists(path.Facade("mail.go"))
 	s.FileExists(path.Config("mail.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&mail.ServiceProvider{},"))
@@ -283,7 +290,7 @@ MAIL_FROM_NAME=
 }
 
 func (s *MainTestSuite) TestPackageInstall_Orm() {
-	s.NoError(facades.Artisan().Call("package:install Orm --default --dev"))
+	s.installFacade("Orm")
 	s.FileExists(path.Facade("orm.go"))
 	s.FileExists(path.Config("database.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&database.ServiceProvider{},"))
@@ -297,7 +304,7 @@ func (s *MainTestSuite) TestPackageInstall_Orm() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Queue() {
-	s.NoError(facades.Artisan().Call("package:install Queue --default --dev"))
+	s.installFacade("Queue")
 	s.FileExists(path.Facade("queue.go"))
 	s.FileExists(path.Config("queue.go"))
 	s.FileExists(path.Migration("20210101000001_create_jobs_table.go"))
@@ -315,7 +322,7 @@ func (s *MainTestSuite) TestPackageInstall_Queue() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_RateLimiter() {
-	s.NoError(facades.Artisan().Call("package:install RateLimiter --default --dev"))
+	s.installFacade("RateLimiter")
 	s.FileExists(path.Facade("rate_limiter.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&http.ServiceProvider{},"))
 
@@ -325,7 +332,7 @@ func (s *MainTestSuite) TestPackageInstall_RateLimiter() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Route() {
-	s.NoError(facades.Artisan().Call("package:install Route --default --dev"))
+	s.installFacade("Route")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&route.ServiceProvider{},"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&gin.ServiceProvider{},"))
 	s.True(file.Contains(path.Bootstrap("app.go"), ".Web"))
@@ -361,7 +368,7 @@ JWT_SECRET=
 }
 
 func (s *MainTestSuite) TestPackageInstall_Schedule() {
-	s.NoError(facades.Artisan().Call("package:install Schedule --default --dev"))
+	s.installFacade("Schedule")
 	s.FileExists(path.Facade("schedule.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&schedule.ServiceProvider{},"))
 
@@ -371,7 +378,7 @@ func (s *MainTestSuite) TestPackageInstall_Schedule() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Schema() {
-	s.NoError(facades.Artisan().Call("package:install Schema --default --dev"))
+	s.installFacade("Schema")
 	s.FileExists(path.Facade("schema.go"))
 	s.FileExists(path.Config("database.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&database.ServiceProvider{},"))
@@ -385,7 +392,7 @@ func (s *MainTestSuite) TestPackageInstall_Schema() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Seeder() {
-	s.NoError(facades.Artisan().Call("package:install Seeder --default --dev"))
+	s.installFacade("Seeder")
 	s.FileExists(path.Facade("seeder.go"))
 	s.FileExists(path.Config("database.go"))
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&database.ServiceProvider{},"))
@@ -414,7 +421,7 @@ DB_PASSWORD=
 }
 
 func (s *MainTestSuite) TestPackageInstall_Session() {
-	s.NoError(facades.Artisan().Call("package:install Session --default --dev"))
+	s.installFacade("Session")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&session.ServiceProvider{},"))
 	s.FileExists(path.Config("session.go"))
 	s.FileExists(path.Facade("session.go"))
@@ -430,7 +437,7 @@ SESSION_LIFETIME=120
 }
 
 func (s *MainTestSuite) TestPackageInstall_Storage() {
-	s.NoError(facades.Artisan().Call("package:install Storage --default --dev"))
+	s.installFacade("Storage")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&filesystem.ServiceProvider{},"))
 	s.FileExists(path.Config("filesystems.go"))
 	s.FileExists(path.Facade("storage.go"))
@@ -442,7 +449,7 @@ func (s *MainTestSuite) TestPackageInstall_Storage() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Telemetry() {
-	s.NoError(facades.Artisan().Call("package:install Telemetry --default --dev"))
+	s.installFacade("Telemetry")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&telemetry.ServiceProvider{},"))
 	s.FileExists(path.Config("telemetry.go"))
 	s.FileExists(path.Facade("telemetry.go"))
@@ -456,7 +463,7 @@ func (s *MainTestSuite) TestPackageInstall_Telemetry() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Testing() {
-	s.NoError(facades.Artisan().Call("package:install Testing --default --dev"))
+	s.installFacade("Testing")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&testing.ServiceProvider{},"))
 	s.FileExists(path.Test("test_case.go"))
 	s.FileExists(path.Test("feature", "example_test.go"))
@@ -470,7 +477,7 @@ func (s *MainTestSuite) TestPackageInstall_Testing() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_Validation() {
-	s.NoError(facades.Artisan().Call("package:install Validation --default --dev"))
+	s.installFacade("Validation")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&validation.ServiceProvider{},"))
 	s.FileExists(path.Facade("validation.go"))
 
@@ -480,7 +487,7 @@ func (s *MainTestSuite) TestPackageInstall_Validation() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_View() {
-	s.NoError(facades.Artisan().Call("package:install View --default --dev"))
+	s.installFacade("View")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&view.ServiceProvider{},"))
 	s.FileExists(path.Facade("view.go"))
 
@@ -490,9 +497,9 @@ func (s *MainTestSuite) TestPackageInstall_View() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_DBDrivers() {
-	s.NoError(facades.Artisan().Call("package:install DB --default --dev"))
+	s.installFacade("DB")
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/mysql --dev"))
+	s.installDriver("github.com/goravel/mysql")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&mysql.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("database.go"), "mysql"))
 
@@ -500,7 +507,7 @@ func (s *MainTestSuite) TestPackageInstall_DBDrivers() {
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&mysql.ServiceProvider{},"))
 	s.False(file.Contains(path.Config("database.go"), "mysql"))
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/sqlserver --dev"))
+	s.installDriver("github.com/goravel/sqlserver")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&sqlserver.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("database.go"), "sqlserver"))
 
@@ -508,7 +515,7 @@ func (s *MainTestSuite) TestPackageInstall_DBDrivers() {
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&sqlserver.ServiceProvider{},"))
 	s.False(file.Contains(path.Config("database.go"), "sqlserver"))
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/sqlite --dev"))
+	s.installDriver("github.com/goravel/sqlite")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&sqlite.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("database.go"), "sqlite"))
 
@@ -518,9 +525,9 @@ func (s *MainTestSuite) TestPackageInstall_DBDrivers() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_FilesystemDrivers() {
-	s.NoError(facades.Artisan().Call("package:install Storage --default --dev"))
+	s.installFacade("Storage")
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/s3 --dev"))
+	s.installDriver("github.com/goravel/s3")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&s3.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("filesystems.go"), "s3"))
 
@@ -528,7 +535,7 @@ func (s *MainTestSuite) TestPackageInstall_FilesystemDrivers() {
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&s3.ServiceProvider{},"))
 	s.False(file.Contains(path.Config("filesystems.go"), "s3"))
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/oss --dev"))
+	s.installDriver("github.com/goravel/oss")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&oss.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("filesystems.go"), "oss"))
 
@@ -536,7 +543,7 @@ func (s *MainTestSuite) TestPackageInstall_FilesystemDrivers() {
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&oss.ServiceProvider{},"))
 	s.False(file.Contains(path.Config("filesystems.go"), "oss"))
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/cos --dev"))
+	s.installDriver("github.com/goravel/cos")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&cos.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("filesystems.go"), "cos"))
 
@@ -544,7 +551,7 @@ func (s *MainTestSuite) TestPackageInstall_FilesystemDrivers() {
 	s.False(file.Contains(path.Bootstrap("providers.go"), "&cos.ServiceProvider{},"))
 	s.False(file.Contains(path.Config("filesystems.go"), "cos"))
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/minio --dev"))
+	s.installDriver("github.com/goravel/minio")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&minio.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("filesystems.go"), "minio"))
 
@@ -554,11 +561,11 @@ func (s *MainTestSuite) TestPackageInstall_FilesystemDrivers() {
 }
 
 func (s *MainTestSuite) TestPackageInstall_CacheDrivers() {
-	s.NoError(facades.Artisan().Call("package:install Cache --default --dev"))
-	s.NoError(facades.Artisan().Call("package:install Session --default --dev"))
-	s.NoError(facades.Artisan().Call("package:install Queue --default --dev"))
+	s.installFacade("Cache")
+	s.installFacade("Session")
+	s.installFacade("Queue")
 
-	s.NoError(facades.Artisan().Call("package:install github.com/goravel/redis --dev"))
+	s.installDriver("github.com/goravel/redis")
 	s.True(file.Contains(path.Bootstrap("providers.go"), "&redis.ServiceProvider{},"))
 	s.True(file.Contains(path.Config("cache.go"), "redis"))
 	s.True(file.Contains(path.Config("database.go"), "redis"))
@@ -575,6 +582,55 @@ func (s *MainTestSuite) TestPackageInstall_CacheDrivers() {
 
 func (s *MainTestSuite) artisan(command string) {
 	s.NoError(facades.Artisan().Call(command))
+}
+
+func (s *MainTestSuite) installFacade(facade string) {
+	s.artisan("package:install " + facade + " --default")
+}
+
+func (s *MainTestSuite) installAllFacades() {
+	s.artisan("package:install --all --default")
+}
+
+// installDriver pins pkg to the framework's release line, because package:install
+// only resolves that line for the drivers a facade declares, not for a named
+// package. The branch ref, v1.18.x for a v1.18 line, covers drivers with no
+// release tag on the line yet.
+//
+// The ref is picked with go list because package:install prints a failed install
+// and still returns nil, so its own error tells us nothing.
+func (s *MainTestSuite) installDriver(pkg string) {
+	line := releaseLine(support.Version)
+	s.Require().NotEmpty(line, "framework version %q has no release line", support.Version)
+
+	var tried []string
+	for _, ref := range []string{line, line + ".x"} {
+		tried = append(tried, ref)
+		if !facades.Process().Run("go", "list", "-m", pkg+"@"+ref).Failed() {
+			s.artisan("package:install " + pkg + "@" + ref)
+			return
+		}
+	}
+
+	s.FailNow("install " + pkg + " on the framework release line: no ref resolved, tried " + strings.Join(tried, ", "))
+}
+
+// releaseLine turns a framework version into its minor line, v1.18.3 into v1.18.
+func releaseLine(version string) string {
+	major, rest, ok := strings.Cut(strings.TrimPrefix(version, "v"), ".")
+	if !ok {
+		return ""
+	}
+
+	minor, _, _ := strings.Cut(rest, ".")
+	if _, err := strconv.Atoi(major); err != nil {
+		return ""
+	}
+	if _, err := strconv.Atoi(minor); err != nil {
+		return ""
+	}
+
+	return "v" + major + "." + minor
 }
 
 func (s *MainTestSuite) uninstallPackages(packages ...string) {
